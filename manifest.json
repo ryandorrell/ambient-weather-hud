@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "ambient-weather-hud",
+  "name": "Ambient Weather HUD",
+  "version": "1.0.0",
+  "author": "Ryan Dorrell",
+  "license": "MIT",
+  "description": "Live conditions from a single Ambient Weather personal weather station: temp, feels-like, humidity, daily rain, and wind.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Ambient Weather HUD",
+    "description": "Live station conditions pill with a detail popup",
+    "category": "Info",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "refreshMinutes": 5
+    },
+    "schema": [
+      {
+        "key": "refreshMinutes",
+        "type": "integer",
+        "label": "Refresh interval (minutes)",
+        "min": 1,
+        "max": 60,
+        "step": 1,
+        "defaultValue": 5
+      }
+    ]
+  }
+}

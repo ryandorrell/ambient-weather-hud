@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Reads/writes the Ambient Weather HUD state file. Invoked by the plugin's
+# Panel.qml via Process so the API key/application key never have to be
+# written from inside QML. Mirrors omarchy-weather-location's role for the
+# built-in weather widget, just shipped inside this plugin instead of
+# /usr/share/omarchy/bin since third-party plugins can't install there.
+set -euo pipefail
+
+state_dir="$HOME/.local/state/omarchy/settings"
+state_file="$state_dir/ambient-weather-hud.json"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  ambient-weather-hud-config --set-credentials <apiKey> <applicationKey>
+  ambient-weather-hud-config --set-device <macAddress> <deviceName>
+  ambient-weather-hud-config --clear
+EOF
+  exit 1
+}
+
+command -v jq >/dev/null 2>&1 || { echo "ambient-weather-hud-config: jq is required" >&2; exit 1; }
+
+mkdir -p "$state_dir"
+
+current() {
+  if [[ -f "$state_file" ]] && jq -e . "$state_file" >/dev/null 2>&1; then
+    cat "$state_file"
+  else
+    echo '{}'
+  fi
+}
+
+write() {
+  local payload="$1"
+  local tmp
+  tmp="$(mktemp "$state_dir/.ambient-weather-hud.XXXXXX")"
+  printf '%s' "$payload" >"$tmp"
+  chmod 600 "$tmp"
+  mv -f "$tmp" "$state_file"
+}
+
+case "${1:-}" in
+  --set-credentials)
+    [[ $# -eq 3 ]] || usage
+    write "$(current | jq --arg k "$2" --arg a "$3" '.apiKey = $k | .applicationKey = $a')"
+    ;;
+  --set-device)
+    [[ $# -eq 3 ]] || usage
+    write "$(current | jq --arg mac "$2" --arg name "$3" '.macAddress = $mac | .deviceName = $name')"
+    ;;
+  --clear)
+    write '{}'
+    ;;
+  *)
+    usage
+    ;;
+esac
