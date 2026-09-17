@@ -119,6 +119,13 @@ function currentDailyRainIn(reading) {
   return numberOrNull(reading.dailyrainin)
 }
 
+// Today's peak wind gust, as reported by the station (resets at local
+// midnight on the AW side, not something we compute).
+function currentMaxDailyGustMph(reading) {
+  if (!reading) return null
+  return numberOrNull(reading.maxdailygust)
+}
+
 function formatTemp(value) {
   if (value === null || value === undefined) return "—"
   return Math.round(value) + "°F"
@@ -147,6 +154,16 @@ function formatRain(inches) {
   return inches.toFixed(2) + " in"
 }
 
+// "68°F ▼" — yesterday's temp (same time of day) plus a trend arrow for how
+// today's current reading compares to it. Flat within half a degree reads
+// as unchanged rather than noise-flipping the arrow.
+function formatYesterdayComparison(currentF, yesterdayF) {
+  if (currentF === null || currentF === undefined || yesterdayF === null || yesterdayF === undefined) return "—"
+  var delta = currentF - yesterdayF
+  var arrow = Math.abs(delta) < 0.5 ? "→" : (delta > 0 ? "▲" : "▼")
+  return formatTemp(yesterdayF) + " " + arrow
+}
+
 // Reading age, for staleness display ("as of 3m ago").
 function ageMinutes(reading, nowMs) {
   if (!reading || reading.dateutc === undefined) return null
@@ -172,11 +189,13 @@ if (typeof module !== "undefined") {
     currentWindMph: currentWindMph,
     currentWindGustMph: currentWindGustMph,
     currentDailyRainIn: currentDailyRainIn,
+    currentMaxDailyGustMph: currentMaxDailyGustMph,
     formatTemp: formatTemp,
     formatBareTemp: formatBareTemp,
     formatPercent: formatPercent,
     formatWind: formatWind,
     formatRain: formatRain,
+    formatYesterdayComparison: formatYesterdayComparison,
     ageMinutes: ageMinutes
   }
 }

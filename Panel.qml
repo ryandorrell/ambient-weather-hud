@@ -7,8 +7,8 @@ import "Model.js" as Model
 
 Panel {
   id: root
-  moduleName: "ambient-weather-hud"
-  ipcTarget: "ambient-weather-hud"
+  moduleName: "rdorrell.weather-hud"
+  ipcTarget: "rdorrell.weather-hud"
   manageIpc: false
 
   property var anchorItem: null
@@ -54,14 +54,14 @@ Panel {
       root.bar.centerHoverRevealSuppressed = value
   }
 
-  // ---- Config, read from ambient-weather-hud.json (owned by
-  //      bin/ambient-weather-hud-config). The watch makes hand edits and
+  // ---- Config, read from rdorrell.weather-hud.json (owned by
+  //      bin/rdorrell.weather-hud-config). The watch makes hand edits and
   //      our own helper-script writes take effect live.
   property var config: Model.parseConfigFile("")
   readonly property bool configured: Model.isConfigured(config)
 
   property FileView configFile: FileView {
-    path: Quickshell.env("HOME") + "/.local/state/omarchy/settings/ambient-weather-hud.json"
+    path: Quickshell.env("HOME") + "/.local/state/omarchy/settings/rdorrell.weather-hud.json"
     watchChanges: true
     printErrors: false
     onFileChanged: reload()
@@ -82,7 +82,7 @@ Panel {
   }
 
   property bool hasEverLoaded: false
-  readonly property string helperScript: Model.localPathFromUrl(Qt.resolvedUrl("bin/ambient-weather-hud-config"))
+  readonly property string helperScript: Model.localPathFromUrl(Qt.resolvedUrl("bin/rdorrell.weather-hud-config"))
 
   // ---- Setup / device-picker state.
   property bool editingConfig: false
@@ -205,6 +205,12 @@ Panel {
   property int refreshRetries: 0
   property bool refreshing: false
 
+  // Reading nearest 24h before the current one — "yesterday, same time" —
+  // used only for the trend arrow, so a failed/slow fetch just leaves the
+  // comparison blank rather than blocking the live view.
+  property var yesterdayReading: null
+  property int yesterdayRetries: 0
+
   readonly property int refreshMinutes: Math.max(1, parseInt(setting("refreshMinutes", 5), 10) || 5)
 
   readonly property var currentTempF: Model.currentTempF(reading)
@@ -213,6 +219,8 @@ Panel {
   readonly property var currentWindMph: Model.currentWindMph(reading)
   readonly property var currentWindGustMph: Model.currentWindGustMph(reading)
   readonly property var currentDailyRainIn: Model.currentDailyRainIn(reading)
+  readonly property var currentMaxDailyGustMph: Model.currentMaxDailyGustMph(reading)
+  readonly property var yesterdayTempF: Model.currentTempF(yesterdayReading)
 
   readonly property string label: !configured
     ? "🌡 setup"
@@ -226,7 +234,9 @@ Panel {
   function refresh() {
     if (!root.configured) return
     refreshRetries = 0
+    yesterdayRetries = 0
     if (!readingProc.running) startReadingFetch()
+    if (!yesterdayProc.running) startYesterdayFetch()
   }
 
   function startReadingFetch() {
@@ -272,6 +282,53 @@ Panel {
       }
       root.reading = parsed
       root.refreshRetries = 0
+    }
+  }
+
+  // "Yesterday" is the closest reading at or before (now - 24h) —
+  // approximates same-time-yesterday without needing a date-range fetch.
+  function startYesterdayFetch() {
+    yesterdayProc.collected = ""
+    yesterdayProc.command = ["curl", "-fsS", "--max-time", "8",
+      "https://api.ambientweather.net/v1/devices/" + encodeURIComponent(config.macAddress)
+      + "?applicationKey=" + encodeURIComponent(config.applicationKey)
+      + "&apiKey=" + encodeURIComponent(config.apiKey)
+      + "&endDate=" + (Date.now() - 24 * 60 * 60 * 1000)
+      + "&limit=1"]
+    yesterdayProc.running = true
+  }
+
+  function scheduleYesterdayRetry() {
+    if (yesterdayRetries >= 2) return
+    yesterdayRetries++
+    yesterdayRetryTimer.restart()
+  }
+
+  Timer {
+    id: yesterdayRetryTimer
+    interval: 3000
+    onTriggered: if (!yesterdayProc.running) root.startYesterdayFetch()
+  }
+
+  Process {
+    id: yesterdayProc
+    property string collected: ""
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: yesterdayProc.collected = text
+    }
+    onExited: function(exitCode) {
+      if (exitCode !== 0 || !yesterdayProc.collected) {
+        root.scheduleYesterdayRetry()
+        return
+      }
+      var parsed = Model.parseReading(yesterdayProc.collected)
+      if (!parsed) {
+        root.scheduleYesterdayRetry()
+        return
+      }
+      root.yesterdayReading = parsed
+      root.yesterdayRetries = 0
     }
   }
 
@@ -627,6 +684,42 @@ Panel {
               Text {
                 textFormat: Text.PlainText
                 text: Model.formatRain(root.currentDailyRainIn)
+                color: root.bar.foreground
+                font.family: root.bar.fontFamily
+                font.pixelSize: Style.font.title
+              }
+            }
+
+            Column {
+              spacing: Style.space(5)
+              Text {
+                text: "MAX WIND TODAY"
+                color: Qt.darker(root.bar.foreground, 1.5)
+                font.family: root.bar.fontFamily
+                font.pixelSize: Style.font.bodySmall
+                font.letterSpacing: 1
+              }
+              Text {
+                textFormat: Text.PlainText
+                text: Model.formatWind(root.currentMaxDailyGustMph)
+                color: root.bar.foreground
+                font.family: root.bar.fontFamily
+                font.pixelSize: Style.font.title
+              }
+            }
+
+            Column {
+              spacing: Style.space(5)
+              Text {
+                text: "VS YESTERDAY"
+                color: Qt.darker(root.bar.foreground, 1.5)
+                font.family: root.bar.fontFamily
+                font.pixelSize: Style.font.bodySmall
+                font.letterSpacing: 1
+              }
+              Text {
+                textFormat: Text.PlainText
+                text: Model.formatYesterdayComparison(root.currentTempF, root.yesterdayTempF)
                 color: root.bar.foreground
                 font.family: root.bar.fontFamily
                 font.pixelSize: Style.font.title

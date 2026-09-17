@@ -4,7 +4,7 @@ import qs.Ui
 
 BarWidget {
   id: root
-  moduleName: "ambient-weather-hud"
+  moduleName: "rdorrell.weather-hud"
 
   function injectPanel() {
     var target = panelLoader.item

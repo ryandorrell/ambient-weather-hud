@@ -20,21 +20,21 @@ it uses them to list your devices so you can pick the one station to track.
 ## Install
 
 ```bash
-omarchy plugin add https://github.com/<you>/ambient-weather-hud.git --enable --yes
+omarchy plugin add https://github.com/ryandorrell/ambient-weather-hud.git --enable --yes
 ```
 
 Or by hand:
 
 ```bash
-git clone https://github.com/<you>/ambient-weather-hud.git ~/.config/omarchy/plugins/ambient-weather-hud
+git clone https://github.com/ryandorrell/ambient-weather-hud.git ~/.config/omarchy/plugins/rdorrell.weather-hud
 omarchy-shell shell rescanPlugins
-omarchy plugin enable ambient-weather-hud
+omarchy plugin enable rdorrell.weather-hud
 ```
 
 Then place it in the bar (it defaults to the right section):
 
 ```bash
-omarchy bar move ambient-weather-hud --section right
+omarchy bar move rdorrell.weather-hud --section right
 ```
 
 ## First run
@@ -49,9 +49,9 @@ name in the panel.
 
 ## Where things live
 
-- `~/.local/state/omarchy/settings/ambient-weather-hud.json` — your saved
+- `~/.local/state/omarchy/settings/rdorrell.weather-hud.json` — your saved
   API key, application key, and selected device, written only by
-  `bin/ambient-weather-hud-config` and kept at `chmod 600`.
+  `bin/rdorrell.weather-hud-config` and kept at `chmod 600`.
 - Bar pill + settings: `~/.config/omarchy/shell.json` (`refreshMinutes`),
   edited via `omarchy bar ...` like any other widget.
 

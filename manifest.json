@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "id": "ambient-weather-hud",
+  "id": "rdorrell.weather-hud",
   "name": "Ambient Weather HUD",
   "version": "1.0.0",
   "author": "Ryan Dorrell",

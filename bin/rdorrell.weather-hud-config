@@ -7,19 +7,19 @@
 set -euo pipefail
 
 state_dir="$HOME/.local/state/omarchy/settings"
-state_file="$state_dir/ambient-weather-hud.json"
+state_file="$state_dir/rdorrell.weather-hud.json"
 
 usage() {
   cat <<'EOF'
 Usage:
-  ambient-weather-hud-config --set-credentials <apiKey> <applicationKey>
-  ambient-weather-hud-config --set-device <macAddress> <deviceName>
-  ambient-weather-hud-config --clear
+  rdorrell.weather-hud-config --set-credentials <apiKey> <applicationKey>
+  rdorrell.weather-hud-config --set-device <macAddress> <deviceName>
+  rdorrell.weather-hud-config --clear
 EOF
   exit 1
 }
 
-command -v jq >/dev/null 2>&1 || { echo "ambient-weather-hud-config: jq is required" >&2; exit 1; }
+command -v jq >/dev/null 2>&1 || { echo "rdorrell.weather-hud-config: jq is required" >&2; exit 1; }
 
 mkdir -p "$state_dir"
 
@@ -34,7 +34,7 @@ current() {
 write() {
   local payload="$1"
   local tmp
-  tmp="$(mktemp "$state_dir/.ambient-weather-hud.XXXXXX")"
+  tmp="$(mktemp "$state_dir/.rdorrell.weather-hud.XXXXXX")"
   printf '%s' "$payload" >"$tmp"
   chmod 600 "$tmp"
   mv -f "$tmp" "$state_file"
