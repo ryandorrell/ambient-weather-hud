@@ -56,6 +56,9 @@ BarWidget {
     bar: root.bar
     text: panelLoader.item ? panelLoader.item.label : "🌡 —"
     tooltipText: panelLoader.item ? panelLoader.item.tooltipText : ""
+    // Flashes the theme's urgent color for freezing/extreme-heat/high-gust
+    // readings, same thresholds the panel's hero icon reacts to.
+    active: panelLoader.item ? panelLoader.item.alertCondition === true : false
     horizontalMargin: 8.75
     verticalPadding: 8.75
 

@@ -154,14 +154,50 @@ function formatRain(inches) {
   return inches.toFixed(2) + " in"
 }
 
-// "68°F ▼" — yesterday's temp (same time of day) plus a trend arrow for how
-// today's current reading compares to it. Flat within half a degree reads
-// as unchanged rather than noise-flipping the arrow.
-function formatYesterdayComparison(currentF, yesterdayF) {
-  if (currentF === null || currentF === undefined || yesterdayF === null || yesterdayF === undefined) return "—"
+// "up"/"down"/"flat" for how today's current reading compares to yesterday
+// (same time of day), or null when either side is missing. Flat within half
+// a degree reads as unchanged rather than noise-flipping the arrow.
+function yesterdayTrendDirection(currentF, yesterdayF) {
+  if (currentF === null || currentF === undefined || yesterdayF === null || yesterdayF === undefined) return null
   var delta = currentF - yesterdayF
-  var arrow = Math.abs(delta) < 0.5 ? "→" : (delta > 0 ? "▲" : "▼")
-  return formatTemp(yesterdayF) + " " + arrow
+  if (Math.abs(delta) < 0.5) return "flat"
+  return delta > 0 ? "up" : "down"
+}
+
+function yesterdayTrendArrow(direction) {
+  if (direction === "up") return "▲"
+  if (direction === "down") return "▼"
+  if (direction === "flat") return "→"
+  return "—"
+}
+
+// Thresholds for the sensor-grounded "mood" glyph and bar-pill alert state
+// below — deliberately tied only to what the station actually measures
+// (thermometer, anemometer, rain gauge), never an inferred sky condition
+// the Ambient Weather API doesn't report.
+var FREEZE_TEMP_F = 32
+var HOT_TEMP_F = 95
+var HIGH_GUST_MPH = 30
+var RAIN_THRESHOLD_IN = 0.01
+
+function conditionIcon(tempF, dailyRainIn, gustMph) {
+  if (dailyRainIn !== null && dailyRainIn !== undefined && dailyRainIn >= RAIN_THRESHOLD_IN) return "🌧"
+  if (isHighGust(gustMph)) return "💨"
+  if (tempF === null || tempF === undefined) return "🌡"
+  if (tempF <= FREEZE_TEMP_F) return "🥶"
+  if (tempF >= HOT_TEMP_F) return "🥵"
+  return "🌡"
+}
+
+function isHighGust(gustMph) {
+  return gustMph !== null && gustMph !== undefined && gustMph >= HIGH_GUST_MPH
+}
+
+// Drives the bar pill's urgent-color flash — freezing, extreme heat, or a
+// high gust, the same conditions the mood glyph reacts to.
+function isAlertCondition(tempF, gustMph) {
+  if (tempF !== null && tempF !== undefined && (tempF <= FREEZE_TEMP_F || tempF >= HOT_TEMP_F)) return true
+  return isHighGust(gustMph)
 }
 
 // Reading age, for staleness display ("as of 3m ago").
@@ -195,7 +231,11 @@ if (typeof module !== "undefined") {
     formatPercent: formatPercent,
     formatWind: formatWind,
     formatRain: formatRain,
-    formatYesterdayComparison: formatYesterdayComparison,
+    yesterdayTrendDirection: yesterdayTrendDirection,
+    yesterdayTrendArrow: yesterdayTrendArrow,
+    conditionIcon: conditionIcon,
+    isHighGust: isHighGust,
+    isAlertCondition: isAlertCondition,
     ageMinutes: ageMinutes
   }
 }

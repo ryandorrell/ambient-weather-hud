@@ -224,7 +224,11 @@ Panel {
 
   readonly property string label: !configured
     ? "🌡 setup"
-    : "🌡 " + Model.formatTemp(currentTempF)
+    : Model.conditionIcon(currentTempF, currentDailyRainIn, currentWindGustMph) + " " + Model.formatTemp(currentTempF)
+
+  // Freezing, extreme heat, or a high gust — drives the bar pill's urgent
+  // flash and the hero temp's color in the popup.
+  readonly property bool alertCondition: configured && Model.isAlertCondition(currentTempF, currentWindGustMph)
 
   readonly property string tooltipText: !configured
     ? "Ambient Weather HUD — click to set up"
@@ -528,25 +532,44 @@ Panel {
               id: heroLeft
               anchors.left: parent.left
               anchors.verticalCenter: parent.verticalCenter
-              spacing: Style.space(4)
+              spacing: Style.space(16)
 
               Text {
-                id: tempBig
+                id: heroIcon
                 textFormat: Text.PlainText
-                text: root.reading ? Model.formatBareTemp(root.currentTempF) : "—"
+                anchors.verticalCenter: parent.verticalCenter
+                text: root.reading ? Model.conditionIcon(root.currentTempF, root.currentDailyRainIn, root.currentWindGustMph) : "—"
                 color: root.bar.foreground
                 font.family: root.bar.fontFamily
-                font.pixelSize: 56
-                font.bold: true
+                // Decorative condition glyph; intentionally larger than the
+                // Style.font.* scale's displayLarge (28).
+                font.pixelSize: 64
               }
-              Text {
-                textFormat: Text.PlainText
-                text: root.reading ? "°F" : ""
-                color: root.bar.foreground
-                font.family: root.bar.fontFamily
-                font.pixelSize: Style.font.display
-                anchors.top: tempBig.top
-                anchors.topMargin: Style.space(10)
+
+              Row {
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: Style.space(4)
+
+                Text {
+                  id: tempBig
+                  textFormat: Text.PlainText
+                  text: root.reading ? Model.formatBareTemp(root.currentTempF) : "—"
+                  // Same urgent tone as the bar pill's flash, so the two read
+                  // as one signal rather than two independent color choices.
+                  color: root.alertCondition ? root.bar.urgent : root.bar.foreground
+                  font.family: root.bar.fontFamily
+                  font.pixelSize: 56
+                  font.bold: true
+                }
+                Text {
+                  textFormat: Text.PlainText
+                  text: root.reading ? "°F" : ""
+                  color: root.bar.foreground
+                  font.family: root.bar.fontFamily
+                  font.pixelSize: Style.font.display
+                  anchors.top: tempBig.top
+                  anchors.topMargin: Style.space(10)
+                }
               }
             }
 
@@ -556,39 +579,69 @@ Panel {
               anchors.verticalCenter: parent.verticalCenter
               spacing: Style.space(4)
 
-              Row {
+              Rectangle {
+                id: stationPill
                 anchors.right: parent.right
-                spacing: Style.space(6)
+                width: stationRow.implicitWidth + Style.space(16)
+                height: stationRow.implicitHeight + Style.space(8)
+                radius: Style.cornerRadius
+                color: stationHover.hovered ? Style.hoverFillFor(root.bar.foreground, Color.accent) : "transparent"
 
                 TapHandler { onTapped: root.changeConfig() }
-                HoverHandler { cursorShape: Qt.PointingHandCursor }
+                HoverHandler { id: stationHover; cursorShape: Qt.PointingHandCursor }
 
-                Text {
-                  textFormat: Text.PlainText
-                  text: (root.config.deviceName || "Station").toUpperCase()
-                  color: Qt.darker(root.bar.foreground, 1.4)
-                  font.family: root.bar.fontFamily
-                  font.pixelSize: Style.font.body
-                  font.letterSpacing: 1
-                }
-                Text {
-                  textFormat: Text.PlainText
-                  text: "⚙"
-                  color: Qt.darker(root.bar.foreground, 1.4)
-                  font.family: root.bar.fontFamily
-                  font.pixelSize: Style.font.body
+                Row {
+                  id: stationRow
+                  anchors.centerIn: parent
+                  spacing: Style.space(6)
+
+                  Text {
+                    textFormat: Text.PlainText
+                    text: (root.config.deviceName || "Station").toUpperCase()
+                    color: stationHover.hovered ? Style.hoverStateColor(root.bar.foreground, Color.accent) : Qt.darker(root.bar.foreground, 1.4)
+                    font.family: root.bar.fontFamily
+                    font.pixelSize: Style.font.body
+                    font.letterSpacing: 1
+                  }
+                  Text {
+                    textFormat: Text.PlainText
+                    text: "⚙"
+                    color: stationHover.hovered ? Style.hoverStateColor(root.bar.foreground, Color.accent) : Qt.darker(root.bar.foreground, 1.4)
+                    font.family: root.bar.fontFamily
+                    font.pixelSize: Style.font.body
+                  }
                 }
               }
 
-              Text {
+              Row {
                 anchors.right: parent.right
-                textFormat: Text.PlainText
                 visible: root.refreshing
-                text: "Updating…"
-                color: Qt.darker(root.bar.foreground, 1.6)
-                font.family: root.bar.fontFamily
-                font.pixelSize: Style.font.caption
-                font.italic: true
+                spacing: Style.space(6)
+
+                Text {
+                  textFormat: Text.PlainText
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "󰦖"
+                  color: Qt.darker(root.bar.foreground, 1.6)
+                  font.family: root.bar.fontFamily
+                  font.pixelSize: Style.font.caption
+
+                  RotationAnimator on rotation {
+                    running: root.refreshing
+                    from: 0; to: 360
+                    duration: 800
+                    loops: Animation.Infinite
+                  }
+                }
+                Text {
+                  textFormat: Text.PlainText
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "Updating…"
+                  color: Qt.darker(root.bar.foreground, 1.6)
+                  font.family: root.bar.fontFamily
+                  font.pixelSize: Style.font.caption
+                  font.italic: true
+                }
               }
             }
           }
@@ -603,12 +656,9 @@ Panel {
             font.italic: true
           }
 
-          Rectangle {
+          PanelSeparator {
             visible: !!root.reading
-            width: parent.width
-            height: Style.spacing.hairline
-            color: root.bar.foreground
-            opacity: 0.12
+            foreground: root.bar.foreground
           }
 
           Grid {
@@ -702,7 +752,9 @@ Panel {
               Text {
                 textFormat: Text.PlainText
                 text: Model.formatWind(root.currentMaxDailyGustMph)
-                color: root.bar.foreground
+                // Same urgent tone as the hero temp and bar pill, so a
+                // notable gust reads as the same signal everywhere.
+                color: Model.isHighGust(root.currentMaxDailyGustMph) ? root.bar.urgent : root.bar.foreground
                 font.family: root.bar.fontFamily
                 font.pixelSize: Style.font.title
               }
@@ -717,12 +769,42 @@ Panel {
                 font.pixelSize: Style.font.bodySmall
                 font.letterSpacing: 1
               }
-              Text {
-                textFormat: Text.PlainText
-                text: Model.formatYesterdayComparison(root.currentTempF, root.yesterdayTempF)
-                color: root.bar.foreground
-                font.family: root.bar.fontFamily
-                font.pixelSize: Style.font.title
+
+              BorderSurface {
+                id: trendPill
+                readonly property string trendDirection: Model.yesterdayTrendDirection(root.currentTempF, root.yesterdayTempF)
+                readonly property color trendColor: trendDirection === "up" ? Color.accent
+                  : trendDirection === "down" ? Color.muted
+                  : Qt.darker(root.bar.foreground, 1.5)
+
+                color: "transparent"
+                borderSpec: Border.controlSpec("normal", root.bar.foreground, Color.accent)
+                radius: Style.cornerRadius
+                implicitWidth: trendRow.implicitWidth + Style.space(12)
+                implicitHeight: trendRow.implicitHeight + Style.space(6)
+
+                Row {
+                  id: trendRow
+                  anchors.centerIn: parent
+                  spacing: Style.space(5)
+
+                  Text {
+                    textFormat: Text.PlainText
+                    text: Model.formatTemp(root.yesterdayTempF)
+                    color: root.bar.foreground
+                    font.family: root.bar.fontFamily
+                    font.pixelSize: Style.font.title
+                    anchors.verticalCenter: parent.verticalCenter
+                  }
+                  Text {
+                    textFormat: Text.PlainText
+                    text: Model.yesterdayTrendArrow(trendPill.trendDirection)
+                    color: trendPill.trendColor
+                    font.family: root.bar.fontFamily
+                    font.pixelSize: Style.font.title
+                    anchors.verticalCenter: parent.verticalCenter
+                  }
+                }
               }
             }
           }
